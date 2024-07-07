@@ -1,0 +1,99 @@
+______________view function
+-------
+
+create or replace view detailstockinbrutepardate as
+    select idarticle,idmagasin,datein,sum(quantitereste) as totalreste,sum(quantitereste*prixunit) as totalmontant
+    from movementstockin group by idarticle,idmagasin,datein ;
+------- idarticle | codearticle | nomarticle | codemethodgestion | idmagasin | nommagasin | adressmagasin |   datein   | totalreste | unite | totalmontant
+create or replace view detailstockinpardate as
+    select esb.idarticle,a.codearticle,a.nomarticle, mg.codemethodgestion,esb.idmagasin,m.nommagasin,m.adressmagasin,esb.datein,esb.totalreste,a.unite,esb.totalmontant 
+    from detailstockinbrutepardate as esb 
+    join article as a on esb.idarticle=a.idarticle
+    join magasin as m on esb.idmagasin=m.idmagasin
+    join methodgestion as mg on a.idmethodgestion=mg.idmethodgestion
+-----------------------------
+-----------
+create or replace function etatstockbydate (datefin date)
+    returns table (idarticle int,codearticle varchar,nomarticle varchar, codemethodgestion varchar,idmagasin int,nommagasin varchar,adressmagasin varchar,quantitetotalin float,quantitetotalout float , unite varchar,prixtotal float) As $$
+    BEGIN
+    return query
+        select tab3.idarticle,a.codearticle,a.nomarticle,mt.codemethodgestion,tab3.idmagasin,m.nommagasin,m.adressmagasin,tab3.quantitetotalin,tab3.quantitetotalout,a.unite,tab3.prixtotal from
+            (
+            select tab2.idarticle,tab2.idmagasin,sum(tab2.prixtotal)  as prixtotal,sum(tab2.quantitetotalin)  as quantitetotalin, sum(tab2.quantitetotalout) as quantitetotalout from
+                (
+                select tab1.idarticle,tab1.idmagasin,sum(tab1.prixunit*(tab1.quantiteinitial-tab1.quantiteouttotal)) as prixtotal, sum(tab1.quantiteinitial) as quantitetotalin ,sum(tab1.quantiteouttotal) as quantitetotalout from
+                    ( select tin.idmovementstockin,tin.idarticle,tin.idmagasin,tin.prixunit,tin.quantiteinitial,touts.quantiteouttotal
+                        from
+                        (
+                            select mi.idmovementstockin,mi.idarticle,mi.idmagasin,mi.prixunit,mi.quantiteinitial from movementstockin as mi where mi.datein<=datefin
+                        ) as tin 
+                        join
+                        (
+                            select tout.idmovementstockin,sum(tout.quantiteouttotal) as quantiteouttotal from
+                                (
+                                select mo.idmovementstockin,sum(mo.quantiteout) as quantiteouttotal  from movementstockout as mo where mo.dateout<=datefin  group by mo.idmovementstockin
+                                    union
+                                select mvi.idmovementstockin,0 as quantiteouttotal from movementstockin as mvi
+                                ) as tout group by tout.idmovementstockin
+                        ) as touts
+                        on tin.idmovementstockin=touts.idmovementstockin
+                    ) as tab1 group by tab1.idarticle,tab1.idmagasin
+                union
+                select a.idarticle,m.idmagasin,0 as prixtotal,0 as quantitetotalin ,0 as quantitetotalout from article as a cross join magasin as m 
+                ) as tab2 group by tab2.idarticle,tab2.idmagasin
+            ) as tab3
+            join article as a on a.idarticle=tab3.idarticle
+            join magasin as m on m.idmagasin=tab3.idmagasin
+            join methodgestion as mt on mt.idmethodgestion=a.idmethodgestion;
+    end;
+    $$ language plpgsql
+-----------
+ create or replace function etatstockbydates(datedebut date,datefin date)
+    returns table (idarticle int,codearticle varchar,nomarticle varchar, codemethodgestion varchar,idmagasin int,nommagasin varchar,adressmagasin varchar,quantitetotaldebutin float,quantitetotaldebutout float,quantitetotalin float,quantitetotalout float , unite varchar,prixtotaldebut float,prixtotal float) As $$
+    BEGIN
+        IF datedebut > datefin THEN
+            RAISE EXCEPTION 'la date de début ne peut pas être postérieure à la date de fin';
+        ELSE
+            return query
+            select ef.idarticle,ef.codearticle,ef.nomarticle,ef.codemethodgestion,ef.idmagasin,ef.nommagasin,ef.adressmagasin,eb.quantitetotalin as quantitetotaldebutin,eb.quantitetotalout as quantitetotaldebutout ,ef.quantitetotalin,ef.quantitetotalout,ef.unite,eb.prixtotal as prixtotaldebut,ef.prixtotal 
+                from etatstockbydate(datefin) as ef
+                    join etatstockbydate(datedebut) as eb on (ef.idarticle=eb.idarticle and ef.idmagasin=eb.idmagasin);
+        end if;
+    end;
+    $$ language plpgsql
+--------------------------------pour 
+ create or replace function restenowformovementstockbefordate(datefin date)
+    returns table (idarticle int,idmagasin int,restetotal float) As $$
+    BEGIN
+    return query
+        select tab.idarticle,tab.idmagasin,sum(tab.restetotal) as restetotal from(
+            select mi.idarticle,mi.idmagasin,sum(mi.quantitereste) as restetotal from movementstockin as mi where mi.datein<=datefin group by mi.idarticle,mi.idmagasin
+            union
+            select a.idarticle,m.idmagasin,0 as restetotal from article as a cross join magasin as m
+        ) as tab group by tab.idarticle,tab.idmagasin ;
+    end;
+    $$ language plpgsql
+
+--select * from restenowformovementstockbefordate('2023-01-10');
+create or replace view movementstockoutdetailview as
+    select tab2.idmovementstockin,tab2.idmovementstockout,tab2.quantiteout,tab2.idarticle,tab2.idmagasin,tab2.dateout from
+        (
+            select mi.idarticle,mi.idmagasin,max( mo.dateout) as lastdateout from movementstockout as mo 
+                join movementstockin as mi on mo.idmovementstockin=mi.idmovementstockin 
+                group by  mi.idarticle,mi.idmagasin
+        ) as tab1 
+        join
+        (
+            select mo.idmovementstockin,mo.idmovementstockout,mo.quantiteout,mi.idarticle,mi.idmagasin,mo.dateout from movementstockout as mo 
+                join movementstockin as mi on mo.idmovementstockin=mi.idmovementstockin 
+        ) as tab2
+        on (tab1.idarticle=tab2.idarticle and tab1.idmagasin=tab2.idmagasin and tab1.lastdateout=tab2.dateout)
+-----------------
+
+
+
+
+
+----------------------------------
+
+---------------

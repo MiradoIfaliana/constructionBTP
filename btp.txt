@@ -1,0 +1,136 @@
+CREATE TABLE client(
+   id_client SERIAL,
+   numero VARCHAR(50) ,
+   PRIMARY KEY(id_client),
+   UNIQUE(numero)
+);
+
+CREATE TABLE typemaison(
+   id_typemaison SERIAL,
+   nomtypemaison VARCHAR(50) ,
+   descriptions TEXT,
+   duree_j FLOAT check (duree_j>0),
+   surface FLOAT,
+   PRIMARY KEY(id_typemaison),
+   UNIQUE(nomtypemaison)
+);
+
+CREATE TABLE typefinition(
+   id_typefinition SERIAL,
+   nomfinition VARCHAR(50) ,
+   descriptions TEXT,
+   PRIMARY KEY(id_typefinition),
+   UNIQUE(nomfinition)
+);
+
+CREATE TABLE tauxtariffinition(
+   id_tauxtariffinition SERIAL,
+   tauxaugment FLOAT,
+   datemodif DATE,
+   id_typefinition INT NOT NULL,
+   PRIMARY KEY(id_tauxtariffinition),
+   FOREIGN KEY(id_typefinition) REFERENCES typefinition(id_typefinition)
+);
+
+CREATE TABLE travaux(
+   id_travaux SERIAL,
+   codetravau VARCHAR(50) ,
+   designation VARCHAR(50) ,
+   PRIMARY KEY(id_travaux),
+   UNIQUE(codetravau),
+   UNIQUE(designation)
+);
+
+CREATE TABLE unite(
+   id_unite SERIAL,
+   unite VARCHAR(50) ,
+   PRIMARY KEY(id_unite),
+   UNIQUE(unite)
+);
+
+CREATE TABLE admin(
+   id_admin SERIAL,
+   nom VARCHAR(50) ,
+   nee DATE,
+   pwd VARCHAR(50) ,
+   mail VARCHAR(50) ,
+   PRIMARY KEY(id_admin),
+   UNIQUE(mail)
+);
+
+CREATE TABLE lieu(
+   id_lieu SERIAL,
+   lieu VARCHAR(50) ,
+   PRIMARY KEY(id_lieu),
+   UNIQUE(lieu)
+);
+
+CREATE TABLE clienttravaux(
+   id_clienttravaux SERIAL,
+   nomtraveaux VARCHAR(50) ,
+   datedebut DATE,
+   datehfin TIMESTAMP,
+   datecreation DATE,
+   id_tauxtariffinition INT NOT NULL,
+   id_lieu INT NOT NULL,
+   id_client INT NOT NULL,
+   id_typemaison INT NOT NULL,
+   PRIMARY KEY(id_clienttravaux),
+   FOREIGN KEY(id_tauxtariffinition) REFERENCES tauxtariffinition(id_tauxtariffinition),
+   FOREIGN KEY(id_lieu) REFERENCES lieu(id_lieu),
+   FOREIGN KEY(id_client) REFERENCES client(id_client),
+   FOREIGN KEY(id_typemaison) REFERENCES typemaison(id_typemaison)
+);
+
+CREATE TABLE payement(
+   id_payement SERIAL,
+   montant FLOAT  check montant >= 0,
+   datepaye DATE,
+   id_clienttravaux INT NOT NULL,
+   PRIMARY KEY(id_payement),
+   FOREIGN KEY(id_clienttravaux) REFERENCES clienttravaux(id_clienttravaux)
+);
+
+CREATE TABLE traveaudetail(
+   id_travaudetail SERIAL,
+   codetravaud VARCHAR(50)  NOT NULL,
+   rang INT ,unique(codetravaud,rang),
+   designationd VARCHAR(50) ,
+   id_unite INT NOT NULL,
+   id_travaux INT NOT NULL,
+   PRIMARY KEY(id_travaudetail),
+   UNIQUE(codetravaud),
+   FOREIGN KEY(id_unite) REFERENCES unite(id_unite),
+   FOREIGN KEY(id_travaux) REFERENCES travaux(id_travaux)
+);
+
+CREATE TABLE devis_travaux(
+   id_devis_travaux SERIAL,
+   quantite FLOAT  check(quantite>=0),
+   datequantite DATE,
+   id_travaudetail INT NOT NULL,
+   id_typemaison INT NOT NULL,
+   PRIMARY KEY(id_devis_travaux),
+   FOREIGN KEY(id_travaudetail) REFERENCES traveaudetail(id_travaudetail),
+   FOREIGN KEY(id_typemaison) REFERENCES typemaison(id_typemaison)
+);
+
+CREATE TABLE tariftravaux(
+   id_tariftravaux SERIAL,
+   tarifunitaire FLOAT  check(tarif>0),
+   datetarif DATE,
+   id_travaudetail INT NOT NULL,
+   PRIMARY KEY(id_tariftravaux),
+   FOREIGN KEY(id_travaudetail) REFERENCES traveaudetail(id_travaudetail)
+);
+
+CREATE TABLE detaidevisclient(
+   id_detaidevisclient SERIAL,
+   quantite FLOAT  check(quantite>0),
+   tarifunitaire FLOAT check(tarifunitaire>0),
+   id_travaudetail INT NOT NULL,
+   id_clienttravaux INT NOT NULL,
+   PRIMARY KEY(id_detaidevisclient),
+   FOREIGN KEY(id_travaudetail) REFERENCES traveaudetail(id_travaudetail),
+   FOREIGN KEY(id_clienttravaux) REFERENCES clienttravaux(id_clienttravaux)
+);

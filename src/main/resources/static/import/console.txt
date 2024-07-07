@@ -1,0 +1,52 @@
+import java.io.Console;
+
+public class Main {
+    public static void main(String[] args) {
+        Console console = System.console();
+        if (console == null) {
+            System.err.println("La console n'est pas disponible.");
+            System.exit(1);
+        }
+
+        String[] options = {"Java", "C#"};
+        int choice = askForChoice(console, options);
+        if (choice == 0) {
+            System.out.println("Vous avez choisi Java.");
+        } else if (choice == 1) {
+            System.out.println("Vous avez choisi C#.");
+        }
+
+        System.out.println("2) Voulez-vous générer la classe ? (y/n)");
+        String response = console.readLine().trim();
+        if (response.equalsIgnoreCase("y")) {
+            System.out.println("Classe générée.");
+        } else if (response.equalsIgnoreCase("n")) {
+            System.out.println("Classe non générée.");
+        } else {
+            System.out.println("Choix invalide.");
+        }
+    }
+
+    private static int askForChoice(Console console, String[] options) {
+        int currentChoice = 0;
+        while (true) {
+            for (int i = 0; i < options.length; i++) {
+                String option = options[i];
+                if (i == currentChoice) {
+                    console.printf("> %s%n", option);
+                } else {
+                    console.printf("  %s%n", option);
+                }
+            }
+
+            String input = console.readLine();
+            if (input.equalsIgnoreCase("k")) {
+                currentChoice = (currentChoice - 1 + options.length) % options.length;
+            } else if (input.equalsIgnoreCase("j")) {
+                currentChoice = (currentChoice + 1) % options.length;
+            } else if (input.equalsIgnoreCase("")) {
+                return currentChoice;
+            }
+        }
+    }
+}
